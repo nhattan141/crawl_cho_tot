@@ -9,7 +9,7 @@ const getID = link => {
 }
 
 const crawl_image_post = async (district) => {
-    const base = 'https://www.vieclamtot.com/tags/' + district
+    const base = 'https://www.vieclamtot.com/' + district
     let pageNumber = 1;
 
     //check if url is visible

@@ -1,4 +1,6 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const https = require('https');
 
 const getID = link => {
     arrTemp = link.split('/');
@@ -6,9 +8,10 @@ const getID = link => {
     return id[0];
 }
 
-const crawl_detail_post = async (district) => {
+const crawl_phone = async (district) => {
     const base = 'https://www.vieclamtot.com/' + district
     let pageNumber = 1;
+
     //check if url is visible
     let isVisible = true;
 
@@ -30,12 +33,14 @@ const crawl_detail_post = async (district) => {
             });
 
             if (urls.length === 0) {
+                isVisible = !isVisible;
                 console.log('////////////////////////////////');
                 console.log('Data has been crawled');
+                // console.log(scrapedData);
                 return scrapedData;
             }
 
-            //loop through each link and get the details of post
+            // loop through each link and get the details of post
             let pagePromise = (link) => new Promise(async (resolve, reject) => {
                 console.log(`Crawling: ${link}...`);
 
@@ -47,24 +52,25 @@ const crawl_detail_post = async (district) => {
                     waitUntil: "domcontentloaded"
                 });
 
-                dataObj['id'] = getID(link);
-                dataObj['url'] = link;
-                dataObj['jobTitle'] = await newPage.$eval('h1.AdDecription_adTitle__AG9r4', text => text.textContent);
-                dataObj['jobSalary'] = await newPage.$eval('.AdDecription_price__L2jjH > span', text => text.textContent);
-                dataObj['companyName'] = await newPage.$eval('.RecruiterInformation_companyName__mciU7 > div', text => text.textContent);
-                dataObj['jobAddress'] = await newPage.$eval('.fz13', text => text.textContent);
-                dataObj['logo'] = await newPage.$eval('.RecruiterInformation_RecuiterInforWrapper__W_ane > div > span > img', img => img.src);
-                dataObj['jobDetail'] = await newPage.$eval('.AdDecription_adBody__qp2KG', text => text.textContent);
-                dataObj['recruiter'] = await newPage.$eval('.SellerProfile_nameDiv__sjPxP', text => text.textContent);
+                dataObj.post_id = getID(link);
+                // get phone number
+                await new Promise(r => setTimeout(r, 1000));
+                // await page.waitForSelector('.ShowPhoneButton_wrapper__B627I');
+                const show_phone_number_btn = await newPage.$('.ShowPhoneButton_wrapper__B627I');
+                // await new Promise((r) => setTimeout(r, 3000));
 
-                //get avatar of recruiter
-                const avatar = await newPage.$('.SellerProfile_sellerWrapper__GlDwe > div > span > img');
-                if (!avatar) {
-                    dataObj['recruiterAvatar'] = 'missing';
+                if (!show_phone_number_btn) {
+                    dataObj['jobPhone'] = 'missing';
                 } else {
-                    dataObj['recruiterAvatar'] = await newPage.$eval('.SellerProfile_sellerWrapper__GlDwe > div > span > img', img => img.src);
+                    await show_phone_number_btn.click();
+                    await new Promise(r => setTimeout(r, 1000));
+                    await newPage.waitForSelector('.ShowPhoneButton_phoneClicked__IxuR6 > div')
+                    await new Promise(r => setTimeout(r, 1000));
+                    dataObj['jobPhone'] = await newPage.evaluate(() => {
+                        return document.querySelector('.ShowPhoneButton_phoneClicked__IxuR6 > div > span').textContent
+                    })
+                    // dataObj['jobPhone'] = await newPage.$eval('.ShowPhoneButton_phoneClicked__IxuR6 > div > span', text => text.textContent);
                 }
-
                 resolve(dataObj);
                 console.log('Completed');
                 await newPage.close();
@@ -75,15 +81,14 @@ const crawl_detail_post = async (district) => {
                 scrapedData.push(currentPageData);
                 // console.log(currentPageData);
             }
-
             pageNumber += 1;
         } catch (e) {
             isVisible = !isVisible;
             return scrapedData;
         }
     }
-
+    // console.log(dataObj);
     await browser.close();
 }
-
-module.exports = { crawl_detail_post }
+// crawl_image_post("nhan-hang-gia-cong-ve-nha-lam");
+module.exports = { crawl_phone };

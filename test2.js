@@ -11,71 +11,80 @@ const getID = link => {
 const crawl_image_post = async (district) => {
     const base = 'https://www.vieclamtot.com/tags/' + district
     let pageNumber = 1;
+
+    //check if url is visible
     let isVisible = true;
 
+    // store all data that has been scrawled
     let scrapedData = [];
 
-    while (isVisible) {
-        let url = base + '?page=' + pageNumber;
-        const browser = await puppeteer.launch({ headless: true });
-        const page = await browser.newPage();
-        try {
-            console.log(`Navigating to ${url}...`);
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
-            // Get the link to all the jobs
-            let urls = await page.$$eval('.AdItem_wrapperAdItem__S6qPH', links => {
-                // Extract the links from the data
-                links = links.map(el => el.querySelector('a').href)
-                return links;
-            });
+    // while (isVisible) {
+    let url = "https://www.vieclamtot.com/viec-lam-thanh-pho-thu-duc-tp-ho-chi-minh/106641530.htm";
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    // try {
+    console.log(`Navigating to ${url}...`);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
+    // Get the link to all the jobs
+    // let urls = await page.$$eval('.AdItem_wrapperAdItem__S6qPH', links => {
+    //     // Extract the links from the data
+    //     links = links.map(el => el.querySelector('a').href)
+    //     return links;
+    // });
 
-            urls.forEach(async (url) => {
-                const dataObj = {};
+    // if (urls.length === 0) {
+    //     isVisible = !isVisible;
+    //     console.log('////////////////////////////////');
+    //     console.log('Data has been crawled');
+    //     console.log(scrapedData);
+    //     return scrapedData;
+    // }
 
-                let newPage = await browser.newPage();
-                newPage.goto(url, { waitUntil: 'domcontentloaded' })
+    //loop through each link and get the details of post
+    // let pagePromise = (link) => new Promise(async (resolve, reject) => {
+    //     console.log(`Crawling: ${link}...`);
 
-                dataObj.id = getID(base);
+    // store information about the post in object
+    let dataObj = {};
 
-                imgs = await page.$$eval('.AdImage_imageWrapper__j1z2m > span:nth-child(2)', imgs => {
-                    return imgs.map(el => el.querySelector('img').src);
-                });
+    // let newPage = await browser.newPage();
+    // await newPage.goto(link, {
+    //     waitUntil: "domcontentloaded"
+    // });
 
-                dataObj.src = [...new Set(imgs)].filter(el => !el.includes('base64'));
+    // dataObj.post_id = getID(link);
+    //get phone number
+    await new Promise(r => setTimeout(r, 1000));
+    // await page.waitForSelector('.ShowPhoneButton_wrapper__B627I');
+    const show_phone_number_btn = await page.$('.ShowPhoneButton_wrapper__B627I');
+    // await new Promise((r) => setTimeout(r, 3000));
 
-                dataObj.src.forEach((baseImage, index) => {
-                    let dir = `./imgs/${dataObj.id}`;
-
-                    if (!fs.existsSync(dir)) {
-                        fs.mkdirSync(dir);
-                    }
-
-                    if (baseImage !== null) {
-                        const file = fs.createWriteStream(`${dir}/image_${dataObj.id}_${index}.jpg`);
-                        const request = https.get(baseImage, function (response) {
-                            response.pipe(file);
-
-                            // after download completed close filestream
-                            file.on("finish", () => {
-                                file.close();
-                            });
-                        });
-                    }
-                });
-
-            })
-
-            if (urls.length === 0) {
-                return scrapedData;
-            }
-
-            // console.log(scrapedData);
-            pageNumber += 1;
-        } catch (e) {
-            isVisible = !isVisible;
-            return scrapedData;
-        }
+    if (!show_phone_number_btn) {
+        dataObj['jobPhone'] = 'missing';
+    } else {
+        await show_phone_number_btn.click();
+        await new Promise(r => setTimeout(r, 1000));
+        await page.waitForSelector('.ShowPhoneButton_phoneClicked__IxuR6 > div')
+        dataObj['jobPhone'] = await page.$eval('.ShowPhoneButton_phoneClicked__IxuR6 > div > span', text => text.textContent);
     }
+    //             resolve(dataObj);
+    //             console.log('Completed');
+    //             await newPage.close();
+    //         });
+
+    //         for (link in urls) {
+    //             let currentPageData = await pagePromise(urls[link]);
+    //             scrapedData.push(currentPageData);
+    //             // console.log(currentPageData);
+    //         }
+    //         pageNumber += 1;
+    //     } catch (e) {
+    //         isVisible = !isVisible;
+    //         return scrapedData;
+    //     }
+    // }
+    console.log(dataObj);
+    await browser.close();
 }
 crawl_image_post("nhan-hang-gia-cong-ve-nha-lam");
 // module.exports = { crawl_image_post };

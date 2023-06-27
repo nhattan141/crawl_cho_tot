@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 
 const crawl_all_urls = async (district) => {
-    const base = 'https://www.vieclamtot.com/tags/' + district
+    const base = 'https://www.vieclamtot.com/' + district
     let pageNumber = 1;
     //check if url is visible
     let isVisible = true;
@@ -24,6 +24,8 @@ const crawl_all_urls = async (district) => {
             });
 
             if (urls.length === 0) {
+                console.log('////////////////////////////////');
+                console.log('Data has been crawled');
                 return scrapedData;
             }
 

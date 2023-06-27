@@ -7,6 +7,7 @@ const { crawl_all_urls } = require('./crawl_url');
 const { crawl_detail_post } = require('./crawl_detail_post');
 const { crawl_image_post } = require('./crawl_image_post');
 const { crawl_extra_info } = require('./crawl_extra_info');
+const { crawl_phone } = require('./crawl_phone');
 
 app.get("/api/details", async (req, res) => {
     const district = req.query.district;
@@ -88,6 +89,27 @@ app.get("/api/crawl_extra_info", async (req, res) => {
             return res.status(500).json({
                 err: error.toString(),
             })
+        }
+    }
+})
+
+app.get("/api/crawl_phones", async (req, res) => {
+    const district = req.query.district;
+    if (district === undefined) {
+        return res.status(500).json({
+            err: 'Missing district'
+        });
+    } else {
+        try {
+            const data = await crawl_phone(district);
+            return res.status(200).json({
+                total: data.length,
+                data
+            })
+        } catch (error) {
+            return res.status(500).json({
+                err: error.toString(),
+            });
         }
     }
 })

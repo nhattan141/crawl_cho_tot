@@ -1,6 +1,4 @@
 const puppeteer = require('puppeteer');
-const fs = require('fs');
-const https = require('https');
 
 const getID = link => {
     const arrTemp = link.split('/');
@@ -8,108 +6,87 @@ const getID = link => {
     return id[0];
 }
 
-const crawl_image_post = async (district) => {
-    const base = 'https://www.vieclamtot.com/' + district;
+const crawl_detail_post = async (district) => {
+    const base = `https://www.vieclamtot.com/${district}`;
     const browser = await puppeteer.launch({ headless: true });
     let pageNumber = 1;
 
-    //check if url is visible
-    let isVisible = true;
-
-    // store all data that has been scrawled
+    // store all data that has been crawled
     const scrapedData = [];
 
-    while (isVisible) {
-        const url = base + '?page=' + pageNumber;
+    while (true) {
+        const url = `${base}?page=${pageNumber}`;
         const page = await browser.newPage();
         try {
             console.log(`Navigating to ${url}...`);
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 0 });
+
             // Get the link to all the jobs
             const urls = await page.$$eval('.AdItem_wrapperAdItem__S6qPH', links => {
                 // Extract the links from the data
-                return links.map(el => el.querySelector('a').href)
+                return links.map(el => el.querySelector('a').href);
             });
 
             if (urls.length === 0) {
                 console.log('////////////////////////////////');
                 console.log('Data has been crawled');
-                await browser.close();
-                return scrapedData;
+                break;
             }
 
-            // loop through each link and get the details of post
-            const promises = urls.map(async (link) => {
+            const pagePromises = urls.map(async (link) => {
                 console.log(`Crawling: ${link}...`);
 
-                // store information about the post in object
-                const dataObj = {};
-
-                //store src of image
-                const images = [];
-
                 const newPage = await browser.newPage();
-                await newPage.goto(link, {
-                    waitUntil: "domcontentloaded"
-                });
+                await newPage.goto(link, { waitUntil: "domcontentloaded" });
 
-                dataObj.post_id = getID(link);
+                const dataObj = {};
+                dataObj.id = getID(link);
+                dataObj.url = link;
 
-                //get number of div containing the image of post
-                const numberImage = await newPage.$$eval('.AdImage_imageWrapper__j1z2m', elements => elements.length);
+                const [
+                    jobTitle,
+                    jobSalary,
+                    companyName,
+                    jobAddress,
+                    logo,
+                    jobDetail,
+                    recruiter,
+                    recruiterAvatar
+                ] = await Promise.all([
+                    newPage.$eval('h1.AdDecription_adTitle__AG9r4', text => text.textContent),
+                    newPage.$eval('.AdDecription_price__L2jjH > span', text => text.textContent),
+                    newPage.$eval('.RecruiterInformation_companyName__mciU7 > div', text => text.textContent),
+                    newPage.$eval('.fz13', text => text.textContent),
+                    newPage.$eval('.RecruiterInformation_RecuiterInforWrapper__W_ane > div > span > img', img => img.src),
+                    newPage.$eval('.AdDecription_adBody__qp2KG', text => text.textContent),
+                    newPage.$eval('.SellerProfile_nameDiv__sjPxP', text => text.textContent),
+                    newPage.$eval('.SellerProfile_sellerWrapper__GlDwe > div > span > img', img => img.src).catch(() => 'missing')
+                ]);
 
-                //loop through number of images, get src image and click on previous button
-                for (let i = 0; i < numberImage - 1; i++) {
-                    console.log(`crawling div[data-index="${i}"] > div > div > div > div > span:nth-child(2) > img`);
-                    try {
-                        await newPage.waitForSelector(`div[data-index="${i}"] > div > div > div > div > span:nth-child(2) > img`, { timeout: 5000 });
-                        const urlImage = await newPage.$eval(`div[data-index="${i}"] > div > div > div > div > span:nth-child(2) > img`, img => img.src);
-                        images.push(urlImage);
-
-                        // Click previous button
-                        await newPage.click('.AdImage_button__ho9Jx ');
-                        await newPage.waitForTimeout(1000);
-                    } catch (e) {
-                        console.error(e);
-                    }
-                }
-
-                // remove duplicates and src contain 'base64'
-                dataObj.src = [...new Set(images)].filter(el => !el.includes('base64'));
-
-                // download image
-                const dir = `./imgs/${dataObj.post_id}`;
-                fs.mkdirSync(dir, { recursive: true });
-
-                await Promise.all(dataObj.src.map(async (baseImage, index) => {
-                    if (baseImage !== null) {
-                        const file = fs.createWriteStream(`${dir}/image_${dataObj.post_id}_${index}.jpg`);
-                        const request = https.get(baseImage, function (response) {
-                            response.pipe(file);
-
-                            // after download completed close filestream
-                            file.on("finish", () => {
-                                file.close();
-                            });
-                        });
-                    }
-                }));
+                dataObj.jobTitle = jobTitle;
+                dataObj.jobSalary = jobSalary;
+                dataObj.companyName = companyName;
+                dataObj.jobAddress = jobAddress;
+                dataObj.logo = logo;
+                dataObj.jobDetail = jobDetail;
+                dataObj.recruiter = recruiter;
+                dataObj.recruiterAvatar = recruiterAvatar;
 
                 console.log('Completed');
                 await newPage.close();
                 return dataObj;
             });
 
-            const currentPageData = await Promise.all(promises);
+            const currentPageData = await Promise.all(pagePromises);
             scrapedData.push(...currentPageData);
             pageNumber += 1;
-        } catch (e) {
-            console.error(e);
-            isVisible = !isVisible;
-            await browser.close();
-            return scrapedData;
+        } catch (error) {
+            console.error(error);
         }
     }
+
+    await browser.close();
+    return scrapedData;
 }
 
-module.exports = { crawl_image_post }
+module.exports = { crawl_detail_post };

@@ -3,7 +3,7 @@ const express = require("express");
 const puppeteer = require('puppeteer');
 const app = express();
 
-const { crawl_all_urls } = require('./crawl_url');
+const { crawl_all_urls } = require('./demo');
 const { crawl_detail_post } = require('./crawl_detail_post');
 const { crawl_image_post } = require('./crawl_image_post');
 const { crawl_extra_info } = require('./crawl_extra_info');
